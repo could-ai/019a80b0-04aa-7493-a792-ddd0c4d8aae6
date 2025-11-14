@@ -22,6 +22,7 @@ class MyApp extends StatelessWidget {
       ),
       home: const HomePage(),
       routes: {
+        '/': (context) => const HomePage(),
         '/translation': (context) => const TranslationScreen(),
         '/history': (context) => const HistoryScreen(),
       },
@@ -70,7 +71,9 @@ class _HomePageState extends State<HomePage> {
       
       if (!_isTrialActive) {
         Future.delayed(const Duration(milliseconds: 500), () {
-          _showPurchaseDialog();
+          if (mounted) {
+            _showPurchaseDialog();
+          }
         });
       }
     } catch (e) {
@@ -204,7 +207,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              if (!_isTrialActive) ..[
+              if (!_isTrialActive) ...<Widget>[
                 const SizedBox(height: 30),
                 SizedBox(
                   width: double.infinity,
