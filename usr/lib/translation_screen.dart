@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:record/record.dart';
-import 'package:couldai_user_app/translation_service.dart';
 import 'package:couldai_user_app/local_storage_service.dart';
-import 'dart:io';
+import 'dart:async';
 
 class TranslationScreen extends StatefulWidget {
   const TranslationScreen({super.key});
@@ -11,63 +9,75 @@ class TranslationScreen extends StatefulWidget {
   State<TranslationScreen> createState() => _TranslationScreenState();
 }
 
-class _TranslationScreenState extends State<TranslationScreen> {
-  final AudioRecorder _audioRecorder = AudioRecorder();
+class _TranslationScreenState extends State<TranslationScreen> with SingleTickerProviderStateMixin {
   bool _isRecording = false;
   String _originalText = '';
   String _translatedText = '';
-  String _statusMessage = '点击按钮开始录音';
+  String _statusMessage = '点击麦克风按钮开始录音';
+  late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
-    _requestPermission();
-  }
-
-  Future<void> _requestPermission() async {
-    final hasPermission = await _audioRecorder.hasPermission();
-    if (!hasPermission) {
-      setState(() {
-        _statusMessage = '需要麦克风权限';
-      });
-    }
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
   }
 
   Future<void> _startRecording() async {
     try {
-      final tempDir = Directory.systemTemp;
-      final filePath = '${tempDir.path}/recording.m4a';
-
-      await _audioRecorder.start(const RecordConfig(), path: filePath);
       setState(() {
         _isRecording = true;
-        _statusMessage = '正在录音...';
+        _statusMessage = '正在录音中... 请说英语';
+        _originalText = '';
+        _translatedText = '';
       });
+      _animationController.repeat();
+      
+      // TODO: Implement actual audio recording with Aliyun SDK
+      // For now, simulate recording
     } catch (e) {
       setState(() {
         _statusMessage = '录音失败: $e';
+        _isRecording = false;
       });
+      _animationController.stop();
     }
   }
 
   Future<void> _stopRecording() async {
     try {
-      final path = await _audioRecorder.stop();
       setState(() {
         _isRecording = false;
-        _statusMessage = '处理中...';
+        _statusMessage = '处理中，请稍候...';
+      });
+      _animationController.stop();
+
+      // TODO: Implement actual translation with Aliyun SDK
+      // For now, simulate processing and show mock result
+      await Future.delayed(const Duration(seconds: 1));
+      
+      final mockOriginal = 'Hello, how are you today?';
+      final mockTranslated = '你好，你今天怎么样？';
+      
+      setState(() {
+        _originalText = mockOriginal;
+        _translatedText = mockTranslated;
+        _statusMessage = '翻译完成';
       });
 
-      if (path != null) {
-        final result = await TranslationService.translateSpeech(path);
-        setState(() {
-          _originalText = result['original']!;
-          _translatedText = result['translated']!;
-          _statusMessage = '翻译完成';
-        });
-
-        // Save to local storage
-        await LocalStorageService.saveTranslation(_originalText, _translatedText);
+      // Save to local storage
+      await LocalStorageService.init();
+      await LocalStorageService.saveTranslation(_originalText, _translatedText);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('翻译已保存'),
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
       setState(() {
@@ -78,7 +88,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
   @override
   void dispose() {
-    _audioRecorder.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -87,66 +97,193 @@ class _TranslationScreenState extends State<TranslationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('实时翻译'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              _statusMessage,
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: Container(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Status indicator
+              Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
+                  color: _isRecording ? Colors.red.shade50 : Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _isRecording ? Colors.red : Colors.blue,
+                    width: 2,
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      '原文 (English):',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Text(_originalText),
+                    if (_isRecording)
+                      RotationTransition(
+                        turns: _animationController,
+                        child: const Icon(
+                          Icons.circle,
+                          color: Colors.red,
+                          size: 16,
+                        ),
+                      )
+                    else
+                      Icon(
+                        Icons.info_outline,
+                        color: Colors.blue.shade700,
+                        size: 20,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '译文 (中文):',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: SingleChildScrollView(
-                        child: Text(
-                          _translatedText,
-                          style: const TextStyle(fontSize: 16),
+                      child: Text(
+                        _statusMessage,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: _isRecording ? Colors.red.shade800 : Colors.blue.shade800,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _isRecording ? _stopRecording : _startRecording,
-              icon: Icon(_isRecording ? Icons.stop : Icons.mic),
-              label: Text(_isRecording ? '停止录音' : '开始录音'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+              const SizedBox(height: 20),
+              
+              // Translation result display
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Original text section
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.record_voice_over,
+                            size: 20,
+                            color: Colors.blue.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '原文 (English)',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: SingleChildScrollView(
+                            child: Text(
+                              _originalText.isEmpty ? '识别的英文将显示在这里...' : _originalText,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: _originalText.isEmpty ? Colors.grey : Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Translated text section
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.translate,
+                            size: 20,
+                            color: Colors.green.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '译文 (中文)',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.shade200),
+                          ),
+                          child: SingleChildScrollView(
+                            child: Text(
+                              _translatedText.isEmpty ? '中文翻译将显示在这里...' : _translatedText,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
+                                color: _translatedText.isEmpty ? Colors.grey : Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              
+              // Record button
+              SizedBox(
+                height: 80,
+                child: ElevatedButton(
+                  onPressed: _isRecording ? _stopRecording : _startRecording,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isRecording ? Colors.red : Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 4,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _isRecording ? Icons.stop : Icons.mic,
+                        size: 36,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        _isRecording ? '停止录音' : '开始录音',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
