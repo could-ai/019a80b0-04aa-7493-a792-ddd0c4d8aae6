@@ -35,6 +35,23 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # For in-app purchases
+  in_app_purchase: ^3.2.0
+
+  # For local database storage
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  path_provider: ^2.1.0
+
+  # For HTTP requests to Aliyun APIs
+  http: ^1.2.0
+
+  # For audio recording (if needed)
+  record: ^5.0.4
+
+  # For shared preferences (for free trial tracking)
+  shared_preferences: ^2.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
