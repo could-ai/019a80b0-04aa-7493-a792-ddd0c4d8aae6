@@ -23,7 +23,7 @@ class PurchaseService {
     );
   }
 
-  static void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) {
+  static void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) async {
     for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
       if (purchaseDetails.status == PurchaseStatus.pending) {
         // Handle pending purchase
@@ -33,7 +33,7 @@ class PurchaseService {
         } else if (purchaseDetails.status == PurchaseStatus.purchased ||
                    purchaseDetails.status == PurchaseStatus.restored) {
           // Deliver content and mark as delivered
-          _deliverProduct(purchaseDetails);
+          await _deliverProduct(purchaseDetails);
         }
         if (purchaseDetails.pendingCompletePurchase) {
           await InAppPurchase.instance.completePurchase(purchaseDetails);
